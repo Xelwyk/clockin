@@ -6,7 +6,7 @@
 """ClockIn - Interactive TUI for tracking work hours and calculated end time.
 
 Formula:
-    End Time = (Start Time + 8h) - Delta Time
+    End Time = (Start Time + 8h) - Overtime
 """
 
 from __future__ import annotations
@@ -54,8 +54,8 @@ def parse_time_str(val: str) -> tuple[int, int] | None:
     return None
 
 
-def parse_delta_str(val: str) -> int | None:
-    """Parse delta string like '+00:30', '-01:15', '00:45', '-45', '+15m', '-1h' into signed total minutes."""
+def parse_overtime_str(val: str) -> int | None:
+    """Parse overtime string like '+00:30', '-01:15', '00:45', '-45', '+15m', '-1h' into signed total minutes."""
     val = val.strip()
     if not val:
         return None
@@ -101,7 +101,7 @@ def format_time(hours: int, minutes: int) -> str:
     return f"{hours:02d}:{minutes:02d}"
 
 
-def format_delta(total_minutes: int) -> str:
+def format_overtime(total_minutes: int) -> str:
     """Format signed minutes as +HH:MM or -HH:MM."""
     sign = "-" if total_minutes < 0 else "+"
     total = abs(total_minutes)
@@ -110,12 +110,12 @@ def format_delta(total_minutes: int) -> str:
     return f"{sign}{h:02d}:{m:02d}"
 
 
-def calculate_end_time(start_mins: int, delta_mins: int) -> tuple[int, int, int]:
-    """Calculate End Time = (start_mins + 8h) - delta_mins.
+def calculate_end_time(start_mins: int, overtime_mins: int) -> tuple[int, int, int]:
+    """Calculate End Time = (start_mins + 8h) - overtime_mins.
 
     Returns (end_hours, end_minutes, day_offset).
     """
-    total_target = start_mins + (8 * 60) - delta_mins
+    total_target = start_mins + (8 * 60) - overtime_mins
     day_offset = total_target // 1440
     norm_mins = total_target % 1440
     return norm_mins // 60, norm_mins % 60, day_offset
@@ -159,7 +159,7 @@ class ClockInApp(App):
         border: heavy $accent;
     }
 
-    #card-delta {
+    #card-overtime {
         border: heavy $warning;
     }
 
@@ -178,7 +178,7 @@ class ClockInApp(App):
         color: $accent;
     }
 
-    #title-delta {
+    #title-overtime {
         color: $warning;
     }
 
@@ -247,13 +247,13 @@ class ClockInApp(App):
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
         Binding("n", "snap_now", "Start = Now", show=True),
-        Binding("r", "reset_delta", "Reset Delta", show=True),
+        Binding("r", "reset_overtime", "Reset Overtime", show=True),
         Binding("d", "toggle_dark", "Toggle Theme", show=True),
     ]
 
     # Reactive variables storing minutes
     start_minutes = reactive(540)  # Default 09:00 AM (9 * 60)
-    delta_minutes = reactive(0)    # Default 00:00
+    overtime_minutes = reactive(0)    # Default 00:00
 
     def __init__(self) -> None:
         super().__init__()
@@ -288,27 +288,27 @@ class ClockInApp(App):
                         yield Button("+1m", id="btn-start-p1")
                         yield Button("Now", id="btn-start-now", variant="primary")
 
-                # Card 2: Delta Time
-                with Vertical(classes="clock-card", id="card-delta"):
-                    yield Label("[2] DELTA TIME", classes="card-title", id="title-delta")
-                    yield Digits("+00:00", id="digits-delta", classes="clock-display")
+                # Card 2: Overtime
+                with Vertical(classes="clock-card", id="card-overtime"):
+                    yield Label("[2] OVERTIME", classes="card-title", id="title-overtime")
+                    yield Digits("+00:00", id="digits-overtime", classes="clock-display")
                     yield Input(
                         value="+00:00",
                         placeholder="±HH:MM (e.g. -00:30)",
-                        id="input-delta",
+                        id="input-overtime",
                         classes="time-input",
                     )
                     yield Label("Supports negative values", classes="input-hint")
                     with Horizontal(classes="btn-row"):
-                        yield Button("-1h", id="btn-delta-m60")
-                        yield Button("+1h", id="btn-delta-p60")
-                        yield Button("-15m", id="btn-delta-m15")
-                        yield Button("+15m", id="btn-delta-p15")
+                        yield Button("-1h", id="btn-overtime-m60")
+                        yield Button("+1h", id="btn-overtime-p60")
+                        yield Button("-15m", id="btn-overtime-m15")
+                        yield Button("+15m", id="btn-overtime-p15")
                     with Horizontal(classes="btn-row btn-primary-row"):
-                        yield Button("-5m", id="btn-delta-m5")
-                        yield Button("+5m", id="btn-delta-p5")
-                        yield Button("+/-", id="btn-delta-toggle", variant="warning")
-                        yield Button("0:00", id="btn-delta-zero", variant="error")
+                        yield Button("-5m", id="btn-overtime-m5")
+                        yield Button("+5m", id="btn-overtime-p5")
+                        yield Button("+/-", id="btn-overtime-toggle", variant="warning")
+                        yield Button("0:00", id="btn-overtime-zero", variant="error")
 
                 # Card 3: End Time (Calculated)
                 with Vertical(classes="clock-card", id="card-end"):
@@ -329,20 +329,20 @@ class ClockInApp(App):
         """Set start time directly."""
         self.start_minutes = (hours % 24) * 60 + (minutes % 60)
 
-    def set_delta(self, minutes: int) -> None:
-        """Set delta time directly."""
-        self.delta_minutes = minutes
+    def set_overtime(self, minutes: int) -> None:
+        """Set overtime directly."""
+        self.overtime_minutes = minutes
 
     def calculate_end(self) -> tuple[int, int, int]:
         """Return (end_hours, end_minutes, day_offset)."""
-        return calculate_end_time(self.start_minutes, self.delta_minutes)
+        return calculate_end_time(self.start_minutes, self.overtime_minutes)
 
     def watch_start_minutes(self, old_val: int, new_val: int) -> None:
         """Reactive watcher when start time changes."""
         self.update_all_views()
 
-    def watch_delta_minutes(self, old_val: int, new_val: int) -> None:
-        """Reactive watcher when delta time changes."""
+    def watch_overtime_minutes(self, old_val: int, new_val: int) -> None:
+        """Reactive watcher when overtime changes."""
         self.update_all_views()
 
     def update_all_views(self) -> None:
@@ -365,18 +365,18 @@ class ClockInApp(App):
         except Exception:
             pass
 
-        # Update Delta Time widgets
-        delta_str = format_delta(self.delta_minutes)
+        # Update Overtime widgets
+        overtime_str = format_overtime(self.overtime_minutes)
         try:
-            digits_delta = self.query_one("#digits-delta", Digits)
-            digits_delta.update(delta_str)
+            digits_overtime = self.query_one("#digits-overtime", Digits)
+            digits_overtime.update(overtime_str)
         except Exception:
             pass
 
         try:
-            input_delta = self.query_one("#input-delta", Input)
-            if not input_delta.has_focus:
-                input_delta.value = delta_str
+            input_overtime = self.query_one("#input-overtime", Input)
+            if not input_overtime.has_focus:
+                input_overtime.value = overtime_str
         except Exception:
             pass
 
@@ -409,14 +409,14 @@ class ClockInApp(App):
 
         try:
             detail = self.query_one("#end-detail-label", Label)
-            detail.update(f"Base 8h finish: {base_str} | Delta adjust: {-self.delta_minutes:+d}m")
+            detail.update(f"Base 8h finish: {base_str} | Overtime adjust: {-self.overtime_minutes:+d}m")
         except Exception:
             pass
 
 
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        """Handle user typing in the Start or Delta input boxes."""
+        """Handle user typing in the Start or Overtime input boxes."""
         if event.input.id == "input-start":
             parsed = parse_time_str(event.value)
             if parsed is not None:
@@ -425,11 +425,11 @@ class ClockInApp(App):
                 if new_start != self.start_minutes:
                     self.start_minutes = new_start
 
-        elif event.input.id == "input-delta":
-            parsed = parse_delta_str(event.value)
+        elif event.input.id == "input-overtime":
+            parsed = parse_overtime_str(event.value)
             if parsed is not None:
-                if parsed != self.delta_minutes:
-                    self.delta_minutes = parsed
+                if parsed != self.overtime_minutes:
+                    self.overtime_minutes = parsed
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button clicks for quick adjustments."""
@@ -453,23 +453,23 @@ class ClockInApp(App):
         elif btn_id == "btn-start-now":
             self.action_snap_now()
 
-        # Delta Time adjustments
-        elif btn_id == "btn-delta-m60":
-            self.delta_minutes -= 60
-        elif btn_id == "btn-delta-p60":
-            self.delta_minutes += 60
-        elif btn_id == "btn-delta-m15":
-            self.delta_minutes -= 15
-        elif btn_id == "btn-delta-p15":
-            self.delta_minutes += 15
-        elif btn_id == "btn-delta-m5":
-            self.delta_minutes -= 5
-        elif btn_id == "btn-delta-p5":
-            self.delta_minutes += 5
-        elif btn_id == "btn-delta-toggle":
-            self.delta_minutes = -self.delta_minutes
-        elif btn_id == "btn-delta-zero":
-            self.action_reset_delta()
+        # Overtime adjustments
+        elif btn_id == "btn-overtime-m60":
+            self.overtime_minutes -= 60
+        elif btn_id == "btn-overtime-p60":
+            self.overtime_minutes += 60
+        elif btn_id == "btn-overtime-m15":
+            self.overtime_minutes -= 15
+        elif btn_id == "btn-overtime-p15":
+            self.overtime_minutes += 15
+        elif btn_id == "btn-overtime-m5":
+            self.overtime_minutes -= 5
+        elif btn_id == "btn-overtime-p5":
+            self.overtime_minutes += 5
+        elif btn_id == "btn-overtime-toggle":
+            self.overtime_minutes = -self.overtime_minutes
+        elif btn_id == "btn-overtime-zero":
+            self.action_reset_overtime()
 
     def action_snap_now(self) -> None:
         """Snap start time to current system time."""
@@ -477,10 +477,10 @@ class ClockInApp(App):
         self.start_minutes = now.hour * 60 + now.minute
         self.notify(f"Start time set to Now: {format_time(now.hour, now.minute)}")
 
-    def action_reset_delta(self) -> None:
-        """Reset delta time to 00:00."""
-        self.delta_minutes = 0
-        self.notify("Delta time reset to +00:00")
+    def action_reset_overtime(self) -> None:
+        """Reset overtime to 00:00."""
+        self.overtime_minutes = 0
+        self.notify("Overtime reset to +00:00")
 
 
 def main() -> None:
