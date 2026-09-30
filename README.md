@@ -1,5 +1,5 @@
 # clockin
-![Clockin screenshot 1](docs/CLOCKIN_1.svg)
+![Clockin screenshot 1](docs/CLOCKIN_1.png)
 
 Clockin is a TUI app that calculates when to clock out based on start time and overtime.
 
